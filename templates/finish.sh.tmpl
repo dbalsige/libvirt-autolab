@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+
+# This script is part of libvirt-autolab, Copyright 2021, dbalsige@bluewin.ch
+
+# This script is fetched by the debian installer from the bootserver via preseed
+# late_command and executed in-target to customize installation further.
+
+# Get the hostname for the system being installed
+hostname=$(/usr/bin/cat /etc/hostname)
+
+# Static configuration
+booturl="%%%TMPL_BOOTURL%%%/${hostname}"
+enable_passwordless_sudo="true"
+disable_ssh_password_login="true"
+disable_ssh_root_login="true"
+create_dotvimrc="true"
+create_dottmuxconf="true"
+enable_ipv4_forwarding="true"
+enable_ipv6_forwarding="false"
+
+# Install SSH authorized_keys for debian user if it exists on the boot server
+if /usr/bin/curl --silent -I ${booturl}/authorized_keys | grep "200 OK" > /dev/null ; then
+  /usr/bin/install -d -o debian -g debian -m 0700 /home/debian/.ssh
+  /usr/bin/curl --silent ${booturl}/authorized_keys > /home/debian/.ssh/authorized_keys
+  /usr/bin/chmod 0600 /home/debian/.ssh/authorized_keys
+  /usr/bin/chown debian.debian /home/debian/.ssh/authorized_keys
+  # Notify back 
+  /usr/bin/curl --silent ${booturl}/authorized-keys-installed > /dev/null
+fi
+
+# Prepare passwordless sudo for debian user if required
+if [ "$enable_passwordless_sudo" == "true" ] ; then
+  /usr/bin/echo "debian ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/90-debian
+  /usr/bin/chmod 0600 /etc/sudoers.d/90-debian
+  /usr/bin/curl --silent ${booturl}/passwordless-sudo-enabled > /dev/null
+fi
+
+# Disable SSH password login if required
+if [ "${disable_ssh_password_login}" == "true" ] ; then
+  /usr/bin/sed -e 's|^#PasswordAuthentication yes|PasswordAuthentication no|' -i /etc/ssh/sshd_config
+  /usr/bin/curl --silent ${booturl}/ssh-password-login-disabled > /dev/null
+fi
+
+# Disable SSH root login if required
+if [ "${disable_ssh_root_login}" == "true" ] ; then
+  /usr/bin/sed -e 's|^#PermitRootLogin prohibit-password|PermitRootLogin no|' -i /etc/ssh/sshd_config
+  /usr/bin/curl --silent ${booturl}/ssh-root-login-disabled > /dev/null
+fi
+
+# Enable IPv4 Forwarding if required
+if [ "${enable_ipv4_forwarding}" == "true" ] ; then
+  /usr/bin/sed -e 's|^#net.ipv4.ip_forward=1|net.ipv4.ip_forward=1|' -i /etc/sysctl.conf
+  /usr/bin/curl --silent ${booturl}/ipv4-forwarding-enabled > /dev/null
+fi
+
+# Enable IPv6 Forwarding if required
+if [ "${enable_ipv6_forwarding}" == "true" ] ; then
+  /usr/bin/sed -e 's|^#net.ipv6.conf.all.forwarding=1|net.ipv6.conf.all.forwarding=1|' -i /etc/sysctl.conf
+  /usr/bin/curl --silent ${booturl}/ipv6-forwarding-enabled > /dev/null
+fi
+
+# Create .vimrc for debian user if required
+if [ "${create_dotvimrc}" == "true" ] ; then
+  /usr/bin/cat > /home/debian/.vimrc << __EOF
+set mouse-=a
+syntax enable
+set bs=2
+__EOF
+  /usr/bin/chown debian.debian /home/debian/.vimrc
+  /usr/bin/curl --silent ${booturl}/dotvimrc-created > /dev/null
+fi
+
+# Create .tmux.conf for debian user if required
+if [ "${create_dottmuxconf}" == "true" ] ; then
+  /usr/bin/cat > /home/debian/.tmux.conf << __EOF
+unbind-key C-b
+set -g prefix C-a
+bind | split-window -h
+bind _ split-window -v
+unbind-key n
+bind Space next-window
+__EOF
+  /usr/bin/chown debian.debian /home/debian/.tmux.conf
+  /usr/bin/curl --silent ${booturl}/dottmuxconf-created > /dev/null
+fi
+
+# Notify the HTTP bootserver about successful installation
+/usr/bin/curl --silent ${booturl}/installation-finished > /dev/null
+
+# Return success so the installer can continue
+exit 0
+

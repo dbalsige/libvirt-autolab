@@ -1,0 +1,27 @@
+<network>
+  <name>local</name>
+  <forward mode='nat'>
+    <nat>
+      <port start='1024' end='65535'/>
+    </nat>
+  </forward>
+  <bridge name='virbr1' stp='on' delay='0'/>
+  <domain name='cluster.local'/>
+  <ip address='192.168.128.1' netmask='255.255.255.0'>
+    <dhcp>
+      <range start='192.168.128.64' end='192.168.128.254'/>
+      <bootp file='http://192.168.128.1:8000/pxelinux.0'/>
+      <host mac='52:54:00:6c:3c:00' name='spray' ip='192.168.128.10'/>
+      <host mac='52:54:00:6c:3c:01' name='node1' ip='192.168.128.11'/>
+      <host mac='52:54:00:6c:3c:02' name='node2' ip='192.168.128.12'/>
+      <host mac='52:54:00:6c:3c:03' name='node3' ip='192.168.128.13'/>
+    </dhcp>
+  </ip>
+  <!-- 
+  Can be used for simulation of external traffic towards the cluster.
+  Given you have the domain example.com and its DNS record is 10.10.10.10,
+  This entry routes it towards node1. -->
+  <route family='ipv4' address='10.10.10.10' prefix='32' gateway='192.168.128.11'/>
+  <route family='ipv4' address='10.10.10.11' prefix='32' gateway='192.168.128.12'/>
+</network>
+

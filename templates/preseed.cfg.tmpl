@@ -1,0 +1,147 @@
+#### Debian preconfiguration file (buster)
+
+### Localiziation
+d-i debian-installer/language string en
+d-i debian-installer/country string CH
+d-i debian-installer/locale string en_US.UTF8
+d-i localechooser/supported-locales multiselect de_CH.UTF-8
+
+### Keyboard
+d-i keyboard-configuration/xkb-keymap seen true
+# X Keyboard not set with the above
+#d-i keyboard-configuration/xkb-keymap select us
+d-i keyboard-configuration/layoutcode string us
+
+### Network
+d-i hw-detect/load_firmware boolean false
+# On systems with wireless hardware
+#d-i netcfg/wireless_wep string
+d-i netcfg/choose_interface select auto
+d-i netcfg/link_wait_timeout string 10
+d-i netcfg/dhcp_timeout string 60
+d-i netcfg/dhcpv6_timeout string 60
+# Any hostname and domain names assigned from dhcp take precedence over
+# values set here. However, setting the values still prevents the questions
+# from being shown, even if values come from dhcp.
+d-i netcfg/get_hostname string unassigned-hostname
+d-i netcfg/get_domain string unassigned-domain
+# Static network configuration (not used here)
+#d-i preseed/early_command string /bin/killall.sh; /bin/netcfg
+#d-i netcfg/disable_autoconfig boolean true
+#d-i netcfg/dhcp_failed note
+#d-i netcfg/dhcp_options select Configure network manually
+#d-i netcfg/disable_dhcp boolean true
+#d-i netcfg/confirm_static boolean true
+#d-i netcfg/get_hostname string 'host'
+#d-i netcfg/get_domain string 'domain'
+# IPv4 example
+#d-i netcfg/get_ipaddress string 192.168.1.42
+#d-i netcfg/get_netmask string 255.255.255.0
+#d-i netcfg/get_gateway string 192.168.1.1
+#d-i netcfg/get_nameservers string 192.168.1.1
+# IPv6 example
+#d-i netcfg/get_ipaddress string fc00::2
+#d-i netcfg/get_netmask string ffff:ffff:ffff:ffff::
+#d-i netcfg/get_gateway string fc00::1
+#d-i netcfg/get_nameservers string fc00::1
+
+### Mirror
+d-i mirror/protocol string http
+d-i mirror/country string CH
+d-i mirror/http/hostname string debian.ethz.ch
+d-i mirror/http/directory string /debian
+# Usually the defaults are just fine
+#d-i mirror/http/proxy string
+#d-i mirror/codename buster
+#d-i mirror/suite stable
+#d-i mirror/udeb/suite string
+
+### Account setup
+d-i passwd/shadow boolean true
+d-i passwd/root-login boolean false
+d-i passwd/make-user boolean true
+d-i passwd/user-fullname string Debian
+d-i passwd/username string debian
+# Encrypted using a crypt(3) hash, e.g. 'openssl passwd -1'
+d-i passwd/user-password-crypted password %%%TMPL_SHADOW%%%
+#d-i passwd/user-uid string 1001
+
+### Clock
+d-i clock-setup/utc boolean true
+d-i time/zone string Europe/Zurich
+d-i clock-setup/ntp boolean true
+# Usually the default is just fine
+#d-i clock-setup/ntp-server string ch.pool.ntp.org
+
+### Partitioning
+d-i partman-auto/disk string /dev/%%%TMPL_BOOTDEV%%%
+# Either regular or lvm or crypto(not used)
+# The expert recipe below supports both regular and lvm
+#d-i partman-auto/method string regular
+d-i partman-auto/method string lvm
+d-i partman-auto-lvm/guided_size string max
+d-i partman-lvm/device_remove_lvm boolean true
+d-i partman-md/device_remove_md boolean true
+d-i partman-lvm/confirm boolean true
+d-i partman-lvm/confirm_nooverwrite boolean true
+d-i partman-auto-lvm/new_vg_name string vg
+# For swap support just use the atomic recipe
+#d-i partman-auto/choose_recipe select atomic
+# For non swap use this recipe for lvm or regular
+d-i partman-auto/expert_recipe string                         \
+      atomic-noswap ::                                        \
+              300 500 500 ext4                                \
+                      $primary{ } $bootable{ }                \
+                      method{ format } format{ }              \
+                      use_filesystem{ } filesystem{ ext4 }    \
+                      mountpoint{ /boot }                     \
+              .                                               \
+              5000 1000000 -1 ext4                            \
+                      $lvmignore{ }                           \
+                      $primary{ }                             \
+                      method{ format } format{ }              \
+                      use_filesystem{ } filesystem{ ext4 }    \
+                      mountpoint{ / }                         \
+              .                                               \
+              5000 1000000 -1 ext4                            \
+                      $defaultignore{ }                       \
+                      $lvmok{ } lv_name{ root }               \
+                      method{ format } format{ }              \
+                      use_filesystem{ } filesystem{ ext4 }    \
+                      mountpoint{ / }                         \
+              .
+d-i partman-basicfilesystems/no_swap boolean false
+d-i partman-partitioning/confirm_write_new_label boolean true
+d-i partman/choose_partition select finish
+d-i partman/confirm boolean true
+d-i partman/confirm_nooverwrite boolean true
+
+### Apt
+d-i apt-setup/non-free boolean false
+d-i apt-setup/contrib boolean false
+d-i apt-setup/services-select multiselect security, updates
+d-i apt-setup/security_host string security.debian.org
+
+### Packages
+tasksel tasksel/first multiselect minimal, ssh-server
+d-i pkgsel/include string lsb-release, lsof, tcpdump, psmisc, tmux, curl, openssl, ncat, less, ca-certificates, gdisk, git, vim, openssh-server
+d-i pkgsel/upgrade select none
+popularity-contest popularity-contest/participate boolean false
+
+### Bootloader
+# Some nice to know's
+#d-i grub-pc/hidden_timeout boolean false
+#d-i grub-pc/timeout string 10
+#d-i partman-efi/non_efi_system
+d-i grub-installer/only_debian boolean true
+d-i grub-installer/with_other_os boolean true
+d-i grub-installer/bootdev string /dev/%%%TMPL_BOOTDEV%%%
+
+### Finish
+d-i finish-install/reboot_in_progress note
+# In case you want to halt or poweroff after install
+#d-i debian-installer/exit/halt boolean true
+#d-i debian-installer/exit/poweroff boolean true
+# Use a script finish.sh on the bootserver to customize installation
+d-i preseed/late_command string wget -Y off %%%TMPL_BOOTURL%%%/$(cat /target/etc/hostname)/finish.sh -O /target/tmp/finish.sh && in-target chmod +x /tmp/finish.sh && in-target /tmp/finish.sh
+
